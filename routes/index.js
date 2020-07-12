@@ -1,4 +1,5 @@
-/* eslint-disable global-require */
+const usersRoutes = require('./usersRoutes');
+
 module.exports = {
-  usersRoutes: require('./usersRoutes')
+  usersRoutes
 };

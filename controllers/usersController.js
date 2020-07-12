@@ -1,76 +1,62 @@
 /* eslint-disable class-methods-use-this */
 const { Users } = require('../models');
+const { logger } = require('../shared');
 
 class UsersController {
   getAll(req, res) {
-    Users.find()
-      .then((data) => {
-        res.status(200).json(data);
-      })
-      .catch((err) => {
-        res.status(500).json({
-          message: err
-        });
-      });
+    return Users.find()
+      .then((data) => this.sendSuccess(data, req, res))
+      .catch((err) => this.sendError(res, err));
   }
 
-  get({ params: { id } }, res) {
-    Users.findOne({
-      _id: id
-    })
-      .then((data) => {
-        res.status(200).json(data);
-      })
-      .catch((err) => {
-        res.status(404).json({
-          message: err
-        });
-      });
+  get(req, res) {
+    return Users.findOne({ _id: req.params.id })
+      .then((data) => this.sendSuccess(data, req, res))
+      .catch((err) => this.sendError(res, err));
   }
 
-  add({ body: { name, type } }, res) {
+  add(req, res) {
     const user = new Users({
-      name,
-      type
+      name: req.body.name,
+      type: req.body.type
     });
-    user.save()
-      .then((data) => {
-        res.status(200).json(data);
-      })
-      .catch((err) => {
-        res.status(500).json({
-          message: err
-        });
-      });
+    return user.save()
+      .then((data) => this.sendSuccess(data, req, res))
+      .catch((err) => this.sendError(res, err));
   }
 
-  update({ params: { id }, body: { name } }, res) {
-    Users.updateOne(
-      { _id: id },
-      { $set: { name } }
+  update(req, res) {
+    return Users.updateOne(
+      { _id: req.params.id },
+      { $set: { name: req.body.name } }
     )
-      .then((updateUser) => {
-        res.status(200).json(updateUser);
-      })
-      .catch((err) => {
-        res.status(404).json({
-          message: err
-        });
-      });
+      .then((data) => this.sendSuccess(data, req, res))
+      .catch((err) => this.sendError(res, err));
   }
 
-  remove({ params: { id } }, res) {
-    Users.deleteOne({
-      _id: id
+  remove(req, res) {
+    return Users.deleteOne({
+      _id: req.params.id
     })
-      .then((removedUser) => {
-        res.status(200).json(removedUser);
-      })
-      .catch((err) => {
-        res.status(404).json({
-          message: err
-        });
-      });
+      .then((data) => this.sendSuccess(data, req, res))
+      .catch((err) => this.sendError(res, err));
+  }
+
+  sendSuccess(data, req, res) {
+    if (!data || data.nModified === 0 || data.deletedCount === 0) {
+      logger.error(`ID not found in ${req.method}, url ${req.url}`);
+      return res.status(404).json({ message: 'resource not found' });
+    }
+    return res.status(200).json(data);
+  }
+
+  sendError(res, err) {
+    const msg = { message: err };
+    if (err.kind === 'ObjectId') {
+      msg.message = 'Error Id';
+    }
+    logger.error(`Error on the server, ${msg.message}`);
+    return res.status(500).json(msg);
   }
 }
 
