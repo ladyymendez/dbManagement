@@ -1,5 +1,3 @@
-/* eslint-disable no-underscore-dangle */
-const http = require('http');
 const chai = require('chai');
 const express = require('express');
 const chaiHttp = require('chai-http');
@@ -15,121 +13,145 @@ const { expect } = chai;
 chai.use(chaiHttp);
 
 describe('Users Routes', () => {
-  const PORT = 3000;
-  const URL = `http://localhost:${PORT}`;
   const app = express();
   app.use(express.json());
-  const server = http.createServer(app);
   const registrar = expressRoutesRegistrar(app);
+  let ID = null;
+  const requester = chai.request(app).keepOpen();
 
   before((done) => {
     db.connect()
-      .then(() => server.listen(PORT))
       .then(() => registrar.registerRoutesJson(
         usersRoutes,
         usersController
       ))
       .then(() => done());
   });
+
   before((done) => {
     Users.deleteMany({})
       .then(() => done());
   });
-  after((done) => server.close(done));
+
+  after((done) => {
+    db.close()
+      .then(() => requester.close())
+      .then(() => done());
+  });
 
   describe('Create /users', () => {
     it('save a new user (name, type)', () => (
-      chai
-        .request(URL)
+      requester
         .post('/users')
         .send({ name: 'LOL', type: 'employee' })
         .then(({ body, statusCode }) => {
-          expect(body).to.be.an('object');
-          expect(statusCode).to.be.equal(OK);
+          expect(body).to.an('object');
+          expect(statusCode).to.equal(OK);
         })
     ));
     it('error to save a new user without parameters', () => (
-      chai
-        .request(URL)
+      requester
         .post('/users')
         .send({ })
         .then(({ statusCode, body: { message: { _message } } }) => {
-          expect(_message).to.be.equal('User validation failed');
-          expect(statusCode).to.be.equal(INTERNAL_SERVER_ERROR);
+          expect(_message).to.equal('User validation failed');
+          expect(statusCode).to.equal(INTERNAL_SERVER_ERROR);
         })
     ));
   });
 
   describe('Read /users', () => {
     it('should return json as listo of users', () => (
-      chai
-        .request(URL)
+      requester
         .get('/users')
         .then(({ body, statusCode }) => {
-          expect(body).to.be.an('array');
-          expect(statusCode).to.be.equal(OK);
+          expect(body).to.an('array');
+          expect(statusCode).to.equal(OK);
         })
     ));
   });
+
   describe('Read /users/:id', () => {
-    it('should return an user by id', () => (
-      Users.findOne()
-        .then((data) => data._id)
-        .then((id) => chai
-          .request(URL)
-          .get(`/users/${id}`))
-        .then(({ body, statusCode }) => {
-          expect(body).to.be.an('object');
-          expect(statusCode).to.be.equal(OK);
-        })
+    before(() => (
+      Users.findOne().then(({ _id }) => {
+        ID = _id;
+      })
     ));
-    it('should return 404 when id is not found', () => (
-      chai
-        .request(URL)
-        .get('/users/123')
-        .then(({ statusCode }) => {
-          expect(statusCode).to.be.equal(NOT_FOUND);
+    it('should return an user by id', () => (
+      requester
+        .get(`/users/${ID}`)
+        .then(({ body, statusCode }) => {
+          expect(body).to.an('object');
+          expect(statusCode).to.equal(OK);
         })
     ));
   });
+
   describe('Update /users/:id', () => {
     it('should update an user by id', () => (
-      Users.findOne()
-        .then((data) => data._id)
-        .then((id) => chai
-          .request(URL)
-          .put(`/users/${id}`)
-          .send({ name: 'Katrina' }))
+      requester
+        .put(`/users/${ID}`)
+        .send({ name: 'Katrina' })
         .then(({ statusCode }) => {
-          expect(statusCode).to.be.equal(OK);
-        })
-    ));
-    it('should return 404 when id is not found', () => (
-      chai
-        .request(URL)
-        .put('/users/123')
-        .then(({ statusCode }) => {
-          expect(statusCode).to.be.equal(NOT_FOUND);
+          expect(statusCode).to.equal(OK);
         })
     ));
   });
+
   describe('Delete /users/:id', () => {
     it('should delete an user by id', () => (
-      Users.findOne()
-        .then((data) => data._id)
-        .then((id) => chai
-          .request(URL)
-          .delete(`/users/${id}`))
+      requester
+        .delete(`/users/${ID}`)
         .then(({ statusCode }) => {
-          expect(statusCode).to.be.equal(OK);
+          expect(statusCode).to.equal(OK);
         })
     ));
-    it('should return 404 when id is not found', () => (
-      chai
-        .request(URL)
+  });
+
+  describe('User not found by id /users/:id', () => {
+    it('Read should return 404', () => (
+      requester
+        .get('/users/123456789111')
+        .then(({ statusCode }) => {
+          expect(statusCode).to.equal(NOT_FOUND);
+        })
+    ));
+    it('Put should return 404', () => (
+      requester
+        .put('/users/123456789111')
+        .then(({ statusCode }) => {
+          expect(statusCode).to.equal(NOT_FOUND);
+        })
+    ));
+    it('Delete should return 404', () => (
+      requester
+        .delete('/users/123456789111')
+        .then(({ statusCode }) => {
+          expect(statusCode).to.equal(NOT_FOUND);
+        })
+    ));
+  });
+
+  describe('Error on the server if id.length < 12 /users/:id', () => {
+    it('Read should return 500', () => (
+      requester
+        .get('/users/123')
+        .then(({ statusCode }) => {
+          expect(statusCode).to.equal(INTERNAL_SERVER_ERROR);
+        })
+    ));
+    it('Put should return 500', () => (
+      requester
+        .put('/users/123')
+        .then(({ statusCode }) => {
+          expect(statusCode).to.equal(INTERNAL_SERVER_ERROR);
+        })
+    ));
+    it('Delete should return 500', () => (
+      requester
         .delete('/users/123')
         .then(({ statusCode }) => {
-          expect(statusCode).to.be.equal(NOT_FOUND);
+          expect(statusCode).to.equal(INTERNAL_SERVER_ERROR);
         })
     ));
   });
