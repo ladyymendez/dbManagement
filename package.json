@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon index.js",
-    "test": "NODE_ENV=test grunt coverage"
+    "test": "NODE_ENV=test grunt test",
+    "coverage": "NODE_ENV=test grunt coverage"
   },
   "author": "Lady Mendez",
   "license": "MIT",
