@@ -8,4 +8,8 @@ const connect = () => (
   )
 );
 
-module.exports = connect;
+const close = () => (
+  mongoose.connection.close()
+);
+
+module.exports = { connect, close };

@@ -1,19 +1,10 @@
-const express = require('express');
-const connection = require('./mongodb');
-const userRoutes = require('./routes/user/user');
+const db = require('./mongodb');
+const server = require('./server');
+const routes = require('./routes');
+const controller = require('./controllers');
+const { logger } = require('./shared');
 
-
-const app = express();
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-app.use('/user', userRoutes);
-
-connection().then(() => {
-  console.log('Connection DB');
-});
-
-app.listen(3000, () => {
-  console.log('Express server started on port 3000');
-});
+db.connect()
+  .then(() => server.start())
+  .then(() => server.setup(controller, routes))
+  .catch((error) => logger.error(error));
